@@ -1,0 +1,48 @@
+# STM32CubeIDE build output
+/Debug/
+/Release/
+/build/
+/build_*/
+
+# STM32CubeMX generierte temporäre Dateien
+/*.log
+/.mxproject
+
+# Behalte die .ioc-Datei für Wiederverwendbarkeit!
+
+# STM32CubeIDE workspace settings
+/.settings/
+/.cproject
+.project
+/*.launch
+
+# User-spezifische temporäre Dateien
+*.swp
+*.swo
+*.swd
+
+# Keil MDK / IAR Embedded Workbench (falls parallel verwendet)
+/*.uvoptx
+/*.uvprojx
+*.dep
+*.lst
+*.map
+*.bak
+*.tmp
+*.ewd
+*.ewp
+*.ewt
+*.eww
+
+# Compiler- und Linker-Ausgaben
+*.o
+*.d
+*.elf
+*.hex
+*.bin
+*.list
+
+# Mac/Linux/Windows system files
+.DS_Store
+Thumbs.db
+desktop.ini
