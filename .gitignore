@@ -8,13 +8,10 @@
 /*.log
 /.mxproject
 
-# Behalte die .ioc-Datei für Wiederverwendbarkeit!
-
-# STM32CubeIDE workspace settings
-/.settings/
-/.cproject
-.project
-/*.launch
+# Behalte die .ioc-Datei und STM32CubeIDE-Projektdateien!
+#!.project
+#!.cproject
+#!.settings/
 
 # User-spezifische temporäre Dateien
 *.swp
