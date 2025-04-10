@@ -1,3 +1,6 @@
+<p align="center">
+  <img src="docs/stm32g4_adc_i2c_banner.png" alt="STM32G4 I2C ADC Banner" width="700"/>
+</p>
 # 🧪 STM32G431 – I²C Slave ADC Sampling Example
 
 [![License: CC0-1.0](https://img.shields.io/badge/license-CC0--1.0-lightgrey.svg)](https://creativecommons.org/publicdomain/zero/1.0/)
