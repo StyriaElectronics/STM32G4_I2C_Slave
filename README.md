@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="docs/stm32g4_adc_i2c_banner.png" alt="STM32G4 I2C ADC Banner" width="700"/>
-</p>
+
 # 🧪 STM32G431 – I²C Slave ADC Sampling Example
 
 [![License: CC0-1.0](https://img.shields.io/badge/license-CC0--1.0-lightgrey.svg)](https://creativecommons.org/publicdomain/zero/1.0/)
@@ -8,8 +6,9 @@
 [![Platform](https://img.shields.io/badge/Platform-STM32G431-informational)](https://www.st.com/en/microcontrollers-microprocessors/stm32g4-series.html)
 
 This project demonstrates how to configure an **STM32G431** as an **I²C slave** that continuously samples **two analog input channels** via the ADC at **1 kHz** each. The sampled data is made available to an I²C master device (e.g., Raspberry Pi) upon request.
-
----
+<p align="center">
+  <img src="docs/stm32g4_adc_i2c_banner.png" alt="STM32G4 I2C ADC Banner" width="700"/>
+</p>---
 
 ## 📂 Project Contents
 
