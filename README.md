@@ -1,122 +1,95 @@
-
-# 🧪 STM32G431 – I²C Slave ADC Sampling Example
+# 🧪 STM32G431 – I²C Slave ADC Sampler with Trigger & Calibration
 
 [![License: CC0-1.0](https://img.shields.io/badge/license-CC0--1.0-lightgrey.svg)](https://creativecommons.org/publicdomain/zero/1.0/)
 [![STM32CubeIDE](https://img.shields.io/badge/STM32CubeIDE-✅-blue)](https://www.st.com/en/development-tools/stm32cubeide.html)
 [![Platform](https://img.shields.io/badge/Platform-STM32G431-informational)](https://www.st.com/en/microcontrollers-microprocessors/stm32g4-series.html)
 
-This project demonstrates how to configure an **STM32G431** as an **I²C slave** that continuously samples **two analog input channels** via the ADC at **1 kHz** each. The sampled data is made available to an I²C master device (e.g., Raspberry Pi) upon request.
-<p align="center">
-  <img src="docs/stm32g4_adc_i2c_banner.png" alt="STM32G4 I2C ADC Banner" width="700"/>
-</p>---
+This project demonstrates how to configure an **STM32G431** as an **I²C slave** that samples **two ADC channels** at **10 kHz for 1 second** (10,000 samples per channel). The result is transmitted to a master (e.g., Raspberry Pi) over I²C. Sampling can be triggered either by I²C command or via **GPIO trigger input on PA8**.
 
-## 📂 Project Contents
+## 📂 Project Structure
 
 ```
-├── Core/                → Application source code
-├── Drivers/             → STM32 HAL and CMSIS drivers
-├── Python/              → Python example script to read ADC values via I²C
-├── .gitignore           → Git exclusions
+├── Core/                → STM32 application source
+├── Drivers/             → STM32 HAL and CMSIS
+├── Python/              → Raspberry Pi script to trigger and read
 ├── STM32G4_I2C_Slave.ioc → CubeMX config file
-├── LICENSE              → CC0 License file
+├── LICENSE              → CC0 License
 └── README.md            → This file
 ```
 
----
-
 ## ✨ Features
 
-- 🔌 **I²C Slave Communication**  
-  Responds to I²C master read requests and transmits buffered ADC data
+- 🔌 **I²C Slave Interface**  
+  Responds to master commands to control LED, trigger ADC, or transmit data
 
-- 📈 **Dual ADC Sampling**  
-  Two analog channels sampled at 1 kHz using STM32's ADC1 and ADC2
+- 🧠 **Dual ADC Sampling @ 10 kHz**  
+  ADC1 and ADC2 capture 8-bit values simultaneously every 100 µs
 
-- ⏱ **Timer-Based Sampling**  
-  TIM6 is used to trigger samples precisely every 1 ms
+- 📦 **Data Buffer with CRC8**  
+  20,000 bytes of ADC data plus 1 CRC8 byte (20001 total)
 
-- 🔦 **Status LED**  
-  On-board LED toggled via I²C command (`0x00` = ON, `0x01` = OFF) for quick connectivity check
+- 📶 **Hardware Trigger Support**  
+  Optional sampling trigger via **GPIO PA8** for synchronized acquisition
 
-- 🐍 **Python Script for Raspberry Pi**  
-  Included Python3 script to request sampling and read the 2×1000 8-bit values plus CRC via I²C
+- 🧮 **Onboard Calibration Support**  
+  Offset calibration with EEPROM storage (ADC1 = `0x04`/`0x05`, ADC2 = `0x06`/`0x07`)
 
-- 🧮 **CRC8 Check**  
-  Ensures data integrity with a CRC byte appended to each transmission
+- 💡 **Status LED**  
+  LED controlled by I²C and used as visual sampling indicator
 
-- 🧰 **Fully STM32CubeIDE Compatible**  
-  Ready to build and flash via STM32CubeIDE (tested on G431K6)
+- 🐍 **Python Example for Raspberry Pi**  
+  Reads the buffer and checks CRC
 
----
+## 🔄 I²C Protocol
 
-## 🧱 Requirements
+| Command | Description                             |
+|---------|-----------------------------------------|
+| `0x00`  | Turn LED **ON**                         |
+| `0x01`  | Turn LED **OFF**                        |
+| `0x02`  | Start transmission of ADC buffer        |
+| `0x03`  | Start sampling (1 s @ 10 kHz, 2 channels)|
+| `0x04`  | Start calibration LED-blink for ADC1    |
+| `0x05`  | Save offset of ADC1 to EEPROM           |
+| `0x06`  | Start calibration LED-blink for ADC2    |
+| `0x07`  | Save offset of ADC2 to EEPROM           |
 
-- ✅ STM32G431 development board (e.g., Nucleo-G431KB or custom board)
-- 💻 [STM32CubeIDE](https://www.st.com/en/development-tools/stm32cubeide.html)  
-- 🔌 USB or external 3.3 V power supply
-- 🔗 I²C Master (e.g. Raspberry Pi)
+## 💻 Requirements
 
----
+- ✅ STM32G431K6 (e.g., custom or Nucleo board)
+- 💡 LED on `PB5`
+- 🧪 Analog inputs on `PA0` (ADC1) and `PA1` (ADC2)
+- 🔌 Trigger input on `PA8`
+- 🔗 I²C connection to master (e.g., Raspberry Pi)
+- 🛠 [STM32CubeIDE](https://www.st.com/en/development-tools/stm32cubeide.html)
 
 ## ⚙️ How to Build
 
 ```bash
-# Clone the repository
 git clone https://github.com/StyriaElectronics/STM32G4_I2C_Slave.git
-
-# Open with STM32CubeIDE
-STM32CubeIDE → File → Open Projects from File System...
+# Open in STM32CubeIDE: File → Open Project from File System…
 ```
 
-Then build and flash the project to your STM32G431.
+Then build & flash to your STM32G431.
 
----
+## 🐍 Python Example (Raspberry Pi)
 
-## 🔄 I²C Protocol
-
-| Command | Description                      |
-|---------|----------------------------------|
-| `0x00`  | Turn LED **on**                  |
-| `0x01`  | Turn LED **off**                 |
-| `0x03`  | Start 1-second ADC sampling      |
-| `0x02`  | Request ADC buffer (2001 bytes)  |
-
----
-
-## 🐍 Example Python Script (Raspberry Pi)
-
-A sample script using `smbus2` to control the STM32 and read ADC data:
+Inside the `Python/` folder:
 
 ```bash
-cd Python/
 python3 read_adc_data.py
 ```
 
-Output will display ADC values of both channels as hex data, including CRC check result.
-
----
+This script sends command `0x03`, waits for 1 s, then reads 20001 bytes and checks the CRC.
 
 ## 📜 License
 
-This project is licensed under the  
-[**Creative Commons Zero v1.0 (CC0-1.0)**](https://creativecommons.org/publicdomain/zero/1.0/).  
-> No restrictions – use, modify, and distribute freely!
+This project is released under  
+[**Creative Commons Zero (CC0-1.0)**](https://creativecommons.org/publicdomain/zero/1.0/)  
+> Use it freely – no restrictions!
 
----
+## 🙌 Contributions Welcome
 
-## 🙌 Contributing
-
-Feel free to fork the repository, open issues, or submit pull requests.  
-PRs improving timing, robustness or adding DMA support are welcome!
-
----
-
-## ⭐️ If You Like It...
-
-...consider giving this repo a ⭐️ to support the project!
-
----
+Feel free to fork, report issues or submit PRs (especially if adding DMA or improving robustness).
 
 Made with ❤️ by **Styria Electronics**  
 🌐 [styria-electronics.at](https://styria-electronics.at)
-
