@@ -39,6 +39,34 @@
 *.bin
 *.list
 
+# KiCad: temporäre und generierte Dateien
+*.bak
+*.tmp
+*.kicad_pcb-bak
+*.sch-bak
+*.kicad_pcb-bck
+*.kicad_sch-bck
+*.net
+*.xml
+*.cache
+*.cmp
+*.dsn
+*.ses
+*.gbr
+*.gtp
+*.gts
+*.gto
+*.gbl
+*.gbp
+*.gbs
+*.gbo
+*.drl
+*.zip
+fp-info-cache
+sym-lib-table-bak
+*-save.kicad_pcb
+*-save.kicad_sch
+
 # Mac/Linux/Windows system files
 .DS_Store
 Thumbs.db
