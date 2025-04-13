@@ -21,16 +21,20 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <string.h>
+#include "eeprom_emulation.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
+#define LED_ON()  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET)
+#define LED_OFF() HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET)
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define NUM_SAMPLES 1000
+#define NUM_SAMPLES 10000
 #define ADC_BUFFER_SIZE ((NUM_SAMPLES * 2) + 1) // +1 für CRC8
 uint8_t i2c_buffer[ADC_BUFFER_SIZE];
 /* USER CODE END PD */
@@ -54,6 +58,11 @@ uint8_t i2c_buffer[ADC_BUFFER_SIZE];
 volatile uint16_t buffer_index = 0;
 volatile uint8_t buffer_ready = 0;
 volatile uint8_t startSampling = 0;
+volatile uint8_t startCalibration1 = 0;
+volatile uint8_t startCalibration2 = 0;
+volatile uint8_t offset_ch1 = 0;
+volatile uint8_t offset_ch2 = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -69,6 +78,25 @@ static void MX_TIM6_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+uint8_t ComputeAverageADC1(void) {
+    uint32_t sum = 0;
+    for (int i = 0; i < 100; ++i) {
+        HAL_ADC_Start(&hadc1);
+        HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
+        sum += HAL_ADC_GetValue(&hadc1);
+    }
+    return (uint8_t)(sum / 100);
+}
+
+uint8_t ComputeAverageADC2(void) {
+    uint32_t sum = 0;
+    for (int i = 0; i < 100; ++i) {
+        HAL_ADC_Start(&hadc2);
+        HAL_ADC_PollForConversion(&hadc2, HAL_MAX_DELAY);
+        sum += HAL_ADC_GetValue(&hadc2);
+    }
+    return (uint8_t)(sum / 100);
+}
 uint8_t calculate_crc8(uint8_t *data, uint16_t length)
 {
     uint8_t crc = 0x00;
@@ -85,6 +113,7 @@ uint8_t calculate_crc8(uint8_t *data, uint16_t length)
     }
     return crc;
 }
+
 void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
     if (hi2c->Instance == I2C1)
@@ -107,6 +136,24 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c)
             case 0x03:
                 startSampling = 1;
                 break;
+            case 0x04:
+                startCalibration1 = 1;
+                break;
+            case 0x05:
+            	offset_ch1 = ComputeAverageADC1();
+            	EEPROM_Write(0, offset_ch1);
+            	startCalibration1 = 0;
+            	LED_OFF();
+                break;
+            case 0x06:
+                startCalibration2 = 1;
+                break;
+            case 0x07:
+            	offset_ch2 = ComputeAverageADC2();
+            	EEPROM_Write(1, offset_ch2);
+            	startCalibration2 = 0;
+            	LED_OFF();
+                break;
         }
 
         // Wieder Empfang aktivieren
@@ -127,6 +174,8 @@ void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c)
         }
         else
         {
+        	// ✅ Alles gesendet → LED AUS
+        	LED_OFF();
             // Ende erreicht – zurücksetzen
             buffer_ready = 0;
             HAL_I2C_Slave_Receive_IT(&hi2c1, &i2c_rx_byte, 1);
@@ -138,7 +187,7 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
 {
   if (hi2c->Instance == I2C1)
   {
-    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET); // Fehler = LED an
+    LED_OFF(); // Fehler = LED an
   }
 }
 
@@ -146,6 +195,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if (htim->Instance == TIM6 && buffer_index < ADC_BUFFER_SIZE)
   {
+    // ✨ Beim allerersten Aufruf: LED AN
+    if (buffer_index == 0)
+    {
+      LED_ON(); // 💡 LED AN
+    }
+
     HAL_ADC_Start(&hadc1);
     HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
     uint16_t value1 = HAL_ADC_GetValue(&hadc1);
@@ -156,8 +211,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
     if ((buffer_index + 1) < ADC_BUFFER_SIZE)
     {
-      i2c_buffer[buffer_index++] = (uint8_t)value1; // CH1 direkt
-      i2c_buffer[buffer_index++] = (uint8_t)value2; // CH2 direkt
+    	uint8_t corrected1 = (uint8_t)value1 - offset_ch1;
+    	uint8_t corrected2 = (uint8_t)value2 - offset_ch2;
+    	i2c_buffer[buffer_index++] = corrected1;
+    	i2c_buffer[buffer_index++] = corrected2;
     }
 
     if (buffer_index >= (ADC_BUFFER_SIZE - 1))
@@ -168,9 +225,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
         HAL_TIM_Base_Stop_IT(&htim6);
         buffer_ready = 1;
+
+
     }
   }
-
 }
 
 /* USER CODE END 0 */
@@ -185,32 +243,71 @@ int main(void)
   MX_ADC2_Init();
   MX_I2C1_Init();
   MX_TIM6_Init();
+  EEPROM_Init(); // optional, falls du später etwas vorbereitest
 
+  offset_ch1 = EEPROM_Read(0);
+  offset_ch2 = EEPROM_Read(1);
+
+  // 💡 Sicherheitsprüfung für uninitialisierte Werte
+  if (offset_ch1 == 0xFF) offset_ch1 = 0;
+  if (offset_ch2 == 0xFF) offset_ch2 = 0;
   /* USER CODE BEGIN 2 */
   HAL_I2C_Slave_Receive_IT(&hi2c1, &i2c_rx_byte, 1);
+  LED_OFF();
   /* USER CODE END 2 */
+  static uint8_t triggered = 0;
 
   while (1)
   {
-	  if (startSampling)
-	      {
-	          startSampling = 0;
-	          buffer_index = 0;
-	          buffer_ready = 0;
+      // Trigger über GPIO PA8 auswerten
+      if (triggered == 0 && HAL_GPIO_ReadPin(TRIGER_GPIO_Port, TRIGER_Pin) == GPIO_PIN_SET)
+      {
+          triggered = 1;
+          startSampling = 1;
+      }
 
-	          // 👇 Wichtig: den ganzen Puffer leeren (optional, aber sicher)
-	          memset(i2c_buffer, 0, sizeof(i2c_buffer));
+      if (startSampling)
+      {
+          startSampling = 0;
+          buffer_index = 0;
+          buffer_ready = 0;
+          triggered = 0;
 
-	          // 🕒 Starte den Timer für 1 kHz Sampling
-	          HAL_TIM_Base_Start_IT(&htim6);
-	      }
+          memset(i2c_buffer, 0, sizeof(i2c_buffer));
 
-    if (!buffer_ready && HAL_I2C_GetState(&hi2c1) == HAL_I2C_STATE_READY)
-    {
-      HAL_I2C_Slave_Receive_IT(&hi2c1, &i2c_rx_byte, 1);
-    }
+          HAL_TIM_Base_Start_IT(&htim6);
+      }
 
-    HAL_Delay(5);
+      if (!buffer_ready && HAL_I2C_GetState(&hi2c1) == HAL_I2C_STATE_READY)
+      {
+          HAL_I2C_Slave_Receive_IT(&hi2c1, &i2c_rx_byte, 1);
+      }
+      if (startCalibration1)
+      {
+          HAL_ADC_Start(&hadc1);
+          HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
+          uint16_t value1 = HAL_ADC_GetValue(&hadc1);
+          uint16_t delay1 = 10 + (value1 * 2);
+
+          LED_ON();     // oder LED1_ON();
+          HAL_Delay(delay1);
+          LED_OFF();    // oder LED1_OFF();
+          HAL_Delay(delay1);
+      }
+
+      if (startCalibration2)
+      {
+          HAL_ADC_Start(&hadc2);
+          HAL_ADC_PollForConversion(&hadc2, HAL_MAX_DELAY);
+          uint16_t value2 = HAL_ADC_GetValue(&hadc2);
+          uint16_t delay2 = 10 + (value2 * 2);
+
+          LED_ON();     // oder LED2_ON(), falls zweite LED vorhanden
+          HAL_Delay(delay2);
+          LED_OFF();    // oder LED2_OFF();
+          HAL_Delay(delay2);
+      }
+      HAL_Delay(5);
   }
 }
     /* USER CODE END WHILE */
@@ -413,7 +510,7 @@ static void MX_I2C1_Init(void)
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
   hi2c1.Init.Timing = 0x40B285C2;
-  hi2c1.Init.OwnAddress1 = 0x50 << 1;
+  hi2c1.Init.OwnAddress1 = 0x10 << 1;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
   hi2c1.Init.OwnAddress2 = 0;
@@ -465,7 +562,7 @@ static void MX_TIM6_Init(void)
   htim6.Instance = TIM6;
   htim6.Init.Prescaler = 169;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 999;
+  htim6.Init.Period = 99;         // 1 Takt → alle 100 µs
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -505,7 +602,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : TRIGER_Pin */
   GPIO_InitStruct.Pin = TRIGER_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(TRIGER_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : LED_Pin */
@@ -555,3 +652,5 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
+
+
