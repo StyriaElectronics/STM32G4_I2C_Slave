@@ -1,6 +1,7 @@
 # 🧪 STM32G431 – I²C Slave ADC Sampler with Trigger & Calibration
 
 [![License: CC0-1.0](https://img.shields.io/badge/license-CC0--1.0-lightgrey.svg)](https://creativecommons.org/publicdomain/zero/1.0/)
+![Made with KiCad](https://img.shields.io/badge/Made%20with-KiCad-005cad?logo=kicad)
 [![STM32CubeIDE](https://img.shields.io/badge/STM32CubeIDE-✅-blue)](https://www.st.com/en/development-tools/stm32cubeide.html)
 [![Platform](https://img.shields.io/badge/Platform-STM32G431-informational)](https://www.st.com/en/microcontrollers-microprocessors/stm32g4-series.html)
 
